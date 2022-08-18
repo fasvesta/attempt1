@@ -1,5 +1,16 @@
-# statistical emittance estimation
-# python implementation of the emittance calculation from pyOrbit
+# - - * - - * - - * - - * - - * - - * - - * - - * - - * - - * - - * - - * - - * - - * 
+"""
+#
+#   statisticalEmittance
+#   A module to calculate the transverse emittances from the beam
+#   based on pyORBIT & desy-thesis-05-014
+#
+#   Version : 1.0
+#   Author  : F. Asvesta
+#   Contact : fasvesta .at. cern .dot. ch
+#
+"""
+# - - * - - * - - * - - * - - * - - * - - * - - * - - * - - * - - * - - * - - * - - *
 
 import numpy as np
 
