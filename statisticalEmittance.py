@@ -45,8 +45,8 @@ class statisticalEmittance(object):
                         return self.beamMatrixBetatronic[par1,par2]-np.nanmean(self.coordinateMatrixBetatronic[par1])*np.nanmean(self.coordinateMatrixBetatronic[par2])
                     else:
                         return self.beamMatrix[par1,par2]-np.nanmean(self.coordinateMatrix[par1])*np.nanmean(self.coordinateMatrix[par2])
-            else:
-                raise IOError('# statisticalEmittance::correlation: par1 and par2 need to be [0|1|2|3|4|5]')
+                else:
+                    raise IOError('# statisticalEmittance::correlation: par1 and par2 need to be [0|1|2|3|4|5]')
                     
         def calculateDispersion(self):
             """
