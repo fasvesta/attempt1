@@ -94,6 +94,19 @@ class statisticalEmittance(object):
         self.emittanceX=np.sqrt(np.abs(np.linalg.det(self.xMatrix)))
         self.yMatrix=np.array([[self.correlation(2,2, betatronic=True),self.correlation(2,3, betatronic=True)],[self.correlation(3,2, betatronic=True),self.correlation(3,3, betatronic=True)]])
         self.emittanceY=np.sqrt(np.abs(np.linalg.det(self.yMatrix)))
+        xYMatrix=np.array([[self.correlation(0,2, betatronic=True),self.correlation(0,3, betatronic=True)],[self.correlation(1,2, betatronic=True),self.correlation(1,3, betatronic=True)]])
+        fullMatrix=np.append(np.append(self.xMatrix,xYMatrix,axis=1),np.append(xYMatrix.T,self.yMatrix,axis=1),axis=0)
+        self.fourDEmittance=np.sprt(np.linalg.det(fullMatrix))
+
+    def calculateCouplingFactor(self):
+        """
+        Coupling evaluation as described in doi: 10.18429/JACoW-LINAC2018-THPO118
+        Returns: void
+        """
+        if self.emittanceX is None:
+            self.calculateEmittance()
+        self.coupling=self.emittanceX*self.emittanceY/self.fourDEmittance - 1.
+
     
     def calculateTwissFunctions(self):
         """
@@ -126,6 +139,15 @@ class statisticalEmittance(object):
         if self.emittanceX is None:
            self.calculateEmittance()
         return self.emittanceY
+
+    def getFourDEmittance(self):
+        """
+        Returns vertical emittance
+        Returns: [float]
+        """
+        if self.emittanceX is None:
+           self.calculateEmittance()
+        return self.fourDEmittance
 
     def getNormalizedEmittanceX(self, beta, gamma):
         """
@@ -197,6 +219,16 @@ class statisticalEmittance(object):
     def getGammaY(self):
         """
         Returns alfa function y
+        Returns: [float]
+        """
+        if self.betaY is None:
+           self.calculateTwissFunctions()
+        return self.gammaY
+
+    def getCouplingFactor(self):
+        """
+        Returns the coupling factor as in doi: 10.18429/JACoW-LINAC2018-THPO118
+        coupling factor is 0 for fully uncoupled beams.
         Returns: [float]
         """
         if self.betaY is None:
