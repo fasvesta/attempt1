@@ -3,12 +3,11 @@
 #
 #   statisticalEmittance
 #   A module to calculate the transverse emittances from the beam
-#   based on pyORBIT & desy-thesis-05-014
+#   based on PyORBIT & desy-thesis-05-014
 #
 #   Version : 1.0
 #   Author  : F. Asvesta
 #   Contact : fasvesta .at. cern .dot. ch
-#
 """
 # - - * - - * - - * - - * - - * - - * - - * - - * - - * - - * - - * - - * - - * - - *
 
@@ -23,64 +22,183 @@ class statisticalEmittance(object):
     def __init__(self, x=None, px=None, y=None, py=None, z=None, dp=None):
         """
         Initialization function
-        Input : particle coordinates as 1D numpy arrays
+        Input:  x:  [1D numpy array]
+                px: [1D numpy array]
+                y:  [1D numpy array]
+                py: [1D numpy array]
+                z:  [1D numpy array]
+                dp: [1D numpy array]
+                particles coordinates 
         Returns: void
         """   
         self.coordinateMatrix=np.array([x,px,y,py,z,dp])
         self.beamMatrix=np.matmul(self.coordinateMatrix,self.coordinateMatrix.T)/len(self.x)
         self.dispersionX=None
         self.coordinateMatrixBetatronic = None
+        self.emittanceX = None
 
-        def correlation(self,par1,par2, betatronic=True):
-            """
-            Calculation of the correlation for the beam matrices
-            Inputs:   par1 : [0|1|2|3|4|5]
-                      par2 : [0|1|2|3|4|5]
-                             integers corresponding to coordinates (0->x),(1->px), (2->y), (3->py),(4->z), (5->dp)
-                      betatronic : [bool] if True the betatronic matrices are considered (default=True)
-            Returns: <(a-<a>)*(b-<b>)> = <a*b> - <a>*<b>
-            """
-            if par1 in range(0,6) and par2 in range(0,6):
-                if betatronic:
-                    if self.coordinateMatrixBetatronic is None:
-                        self.betatronicMatrices()
-                    return self.beamMatrixBetatronic[par1,par2]-np.nanmean(self.coordinateMatrixBetatronic[par1])*np.nanmean(self.coordinateMatrixBetatronic[par2])
-                else:
-                    return self.beamMatrix[par1,par2]-np.nanmean(self.coordinateMatrix[par1])*np.nanmean(self.coordinateMatrix[par2])
+    def correlation(self,par1,par2, betatronic=True):
+        """
+        Calculation of the correlation for the beam matrices
+        Inputs: par1 : [0|1|2|3|4|5]
+                par2 : [0|1|2|3|4|5]
+                integers corresponding to coordinates (0->x),(1->px), (2->y), (3->py),(4->z), (5->dp)
+                betatronic : [bool] if True the betatronic matrices are considered (default=True)
+        Returns: <(a-<a>)*(b-<b>)> = <a*b> - <a>*<b>
+        """
+        if par1 in range(0,6) and par2 in range(0,6):
+            if betatronic:
+                if par1>3 or par2>3:
+                    raise IOError('# statisticalEmittance::correlation: if betatronic par1 and par2 need to be [0|1|2|3]')
+                elif self.coordinateMatrixBetatronic is None:
+                    self.betatronicMatrices()
+                return np.abs(self.beamMatrixBetatronic[par1,par2]-np.nanmean(self.coordinateMatrixBetatronic[par1])*np.nanmean(self.coordinateMatrixBetatronic[par2]))
             else:
-                raise IOError('# statisticalEmittance::correlation: par1 and par2 need to be [0|1|2|3|4|5]')
+                return np.abs(self.beamMatrix[par1,par2]-np.nanmean(self.coordinateMatrix[par1])*np.nanmean(self.coordinateMatrix[par2]))
+        else:
+            raise IOError('# statisticalEmittance::correlation: par1 and par2 need to be [0|1|2|3|4|5]')
 
-        #in pyorbit the dispersion is returned *p*b and then for the betatronic they do /E/b**2 / for me it's not needed we can have the same without the momentum similar to http://www-library.desy.de/preparch/desy/thesis/desy-thesis-05-014.pdf (13) 
+    def calculateDispersion(self):
+        """
+        Statistical dispersion evaluation
+        Returns: void
+        """
+        self.corr5=self.correlation(5,5, betatronic=False)
+        self.dispersionX=self.correlation(0,5, betatronic=False)/self.corr5
+        self.dispersionPx=self.correlation(1,5, betatronic=False)/self.corr5
+        self.dispersionY=self.correlation(2,5, betatronic=False)/self.corr5
+        self.dispersionPy=self.correlation(3,5, betatronic=False)/self.corr5
 
-        def calculateDispersion(self):
-            """
-            Statistical dispersion evaluation
-            Returns: void
-            """
-            self.corr5=self.correlation(5,5, betatronic=False)
-            self.dispersionX=self.correlation(0,5, betatronic=False)/self.corr5
-            self.dispersionPx=self.correlation(1,5, betatronic=False)/self.corr5
-            self.dispersionY=self.correlation(2,5, betatronic=False)/self.corr5
-            self.dispersionPy=self.correlation(3,5, betatronic=False)/self.corr5
+    def betatronicMatrices(self):
+        """
+        Evaluation of the coordinates and beam matrix excluding dispersive components
+        Returns: void
+        """
+        if self.dispersionX is None:
+            self.calculateDispersion()
 
-        def betatronicMatrices(self):
-            """
-            Evaluation of the coordinates and beam matrix excluding dispersive components
-            Returns: void
-            """
-            if self.dispersionX is None:
-                self.calculateDispersion()
+        xBetatronic=self.coordinateMatrix[0]-self.dispersionX*self.coordinateMatrix[5]
+        pxBetatronic=self.coordinateMatrix[1]-self.dispersionPx*self.coordinateMatrix[5]
+        yBetatronic=self.coordinateMatrix[2]-self.dispersionY*self.coordinateMatrix[5]
+        pyBetatronic=self.coordinateMatrix[3]-self.dispersionPy*self.coordinateMatrix[5]
 
-            xBetatronic=self.coordinateMatrix[0]-self.dispersionX*self.coordinateMatrix[5]
-            pxBetatronic=self.coordinateMatrix[1]-self.dispersionPx*self.coordinateMatrix[5]
-            yBetatronic=self.coordinateMatrix[2]-self.dispersionY*self.coordinateMatrix[5]
-            pyBetatronic=self.coordinateMatrix[3]-self.dispersionPy*self.coordinateMatrix[5]
-
-            self.coordinateMatrixBetatronic=np.array([xBetatronic,pxBetatronic,yBetatronic,pyBetatronic,self.coordinateMatrix[4],self.coordinateMatrix[5]])
-            self.beamMatrixBetatronic=np.matmul(self.coordinateMatrixBetatronic,self.coordinateMatrixBetatronic.T)/len(xBetatronic)
-
-        # self.twissBetax=self.coordinateMatrixBetatronic[0,0]
-
+        self.coordinateMatrixBetatronic=np.array([xBetatronic,pxBetatronic,yBetatronic,pyBetatronic])
+        self.beamMatrixBetatronic=np.matmul(self.coordinateMatrixBetatronic,self.coordinateMatrixBetatronic.T)/len(xBetatronic)
     
+    def calculateEmittance(self):
+        """
+        Transverse emittance evaluation 
+        Returns: void
+        """
+        self.xMatrix=np.array([[self.correlation(0,0, betatronic=True),self.correlation(0,1, betatronic=True)],[self.correlation(1,0, betatronic=True),self.correlation(1,1, betatronic=True)]])
+        self.emittanceX=np.sqrt(np.abs(np.linalg.det(self.xMatrix)))
+        self.yMatrix=np.array([[self.correlation(2,2, betatronic=True),self.correlation(2,3, betatronic=True)],[self.correlation(3,2, betatronic=True),self.correlation(3,3, betatronic=True)]])
+        self.emittanceY=np.sqrt(np.abs(np.linalg.det(self.yMatrix)))
+    
+    def calculateTwissFunctions(self):
+        """
+        Twiss functions evaluation 
+        Returns: void
+        """
+        if self.emittanceX is None:
+            self.calculateEmittance()
+        self.betaX = self.xMatrix[0,0]/self.emittanceX
+        self.alfaX = - self.xMatrix[0,1]/self.emittanceX
+        self.gammaX = self.xMatrix[1,1]/self.emittanceX
+        self.betaY = self.yMatrix[0,0]/self.emittanceY
+        self.alfaY = - self.yMatrix[0,1]/self.emittanceY
+        self.gammaY = self.yMatrix[1,1]/self.emittanceY
 
-    # def estimateBetaFunction(particles):
+    def getEmittanceX(self):
+        """
+        Returns horizontal emittance
+        Returns: [float]
+        """
+        if self.emittanceX is None:
+           self.calculateEmittance()
+        return self.emittanceX
+
+    def getEmittanceY(self):
+        """
+        Returns vertical emittance
+        Returns: [float]
+        """
+        if self.emittanceX is None:
+           self.calculateEmittance()
+        return self.emittanceY
+
+    def getNormalizedEmittanceX(self, beta, gamma):
+        """
+        Returns normalized horizontal emittance
+        Inputs: beta:   [float] bunch beta
+                gamma:  [float] bunch gamma
+        Returns: [float]
+        """
+        if self.emittanceX is None:
+           self.calculateEmittance()
+        return self.emittanceX*beta*gamma
+
+    def getNormalizedEmittanceY(self, beta, gamma):
+        """
+        Returns normalized vertical emittance
+        Inputs: beta:   [float] bunch beta
+                gamma:  [float] bunch gamma
+        Returns: [float]
+        """
+        if self.emittanceX is None:
+           self.calculateEmittance()
+        return self.emittanceY*beta*gamma
+
+    def getBetaX(self):
+        """
+        Returns beta function x
+        Returns: [float]
+        """
+        if self.betaX is None:
+           self.calculateTwissFunctions()
+        return self.betaX
+
+    def getBetaY(self):
+        """
+        Returns beta function y
+        Returns: [float]
+        """
+        if self.betaY is None:
+           self.calculateTwissFunctions()
+        return self.betaY
+
+    def getAlfX(self):
+        """
+        Returns alfa function x
+        Returns: [float]
+        """
+        if self.betaX is None:
+           self.calculateTwissFunctions()
+        return self.alfaX
+
+    def getAlfY(self):
+        """
+        Returns alfa function y
+        Returns: [float]
+        """
+        if self.betaY is None:
+           self.calculateTwissFunctions()
+        return self.alfaY
+
+    def getGammaX(self):
+        """
+        Returns alfa function x
+        Returns: [float]
+        """
+        if self.betaX is None:
+           self.calculateTwissFunctions()
+        return self.gammaX
+
+    def getGammaY(self):
+        """
+        Returns alfa function y
+        Returns: [float]
+        """
+        if self.betaY is None:
+           self.calculateTwissFunctions()
+        return self.gammaY
