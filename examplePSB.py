@@ -24,14 +24,14 @@ line= xt.Line.from_madx_sequence(mad.sequence['psb'])
 line.particle_ref=xp.Particles(mass0=xp.PROTON_MASS_EV,
                                gamma0=mad.sequence.psb.beam.gamma)
 
-nemitt_x=3e-6
-nemitt_y=1e-6
+nemitt_x=5.4e-6
+nemitt_y=3.5e-6
 bunch_intensity=5e11
-sigma_z=15.
-n_part = 3e3
+sigma_z=10.67
+n_part = int(3e3)
 
 # from space charge example
-num_turns=5 # is this the number of turns to track?
+num_turns=600 # is this the number of turns to track?
 
 num_spacecharge_interactions = 202 # is this interactions per turn?
 tol_spacecharge_position = 1e-2 # is this the minimum/maximum space between sc elements?
@@ -50,7 +50,7 @@ lprofile = xf.LongitudinalProfileQGaussian(
         q_parameter=1.)
 
 xf.install_spacecharge_frozen(line=line,
-                   particle_ref=particle_ref,
+                   particle_ref=line.particle_ref,
                    longitudinal_profile=lprofile,
                    nemitt_x=nemitt_x, nemitt_y=nemitt_y,
                    sigma_z=sigma_z,
@@ -70,26 +70,28 @@ tracker_sc_off = tracker.filter_elements(exclude_types_starting_with='SpaceCh')
 # Generate particles #
 ######################
 
-p_gaussian = xp.generate_matched_gaussian_bunch(_context=context, num_particles=n_part,
-                            total_intensity_particles=bunch_intensity,
-                            nemitt_x=nemitt_x, nemitt_y=nemitt_y, sigma_z=sigma_z,
-                            particle_ref=line.particle_ref,
-                            tracker=tracker_sc_off)
+# particles = xp.generate_matched_gaussian_bunch(_context=context, num_particles=n_part,
+#                             total_intensity_particles=bunch_intensity,
+#                             nemitt_x=nemitt_x, nemitt_y=nemitt_y, sigma_z=sigma_z,
+#                             particle_ref=line.particle_ref,
+#                             tracker=tracker_sc_off)
 
-#########
-# Track #
-#########
+x_norm, y_norm, _, _ = xp.generate_2D_polar_grid(
+    theta_range=(0.01, np.pi/2-0.01),
+    ntheta = 20,
+    r_range = (0.1, 3),
+    nr = 30)
 
-# r=StatisticalEmittance()
-# epsn_x = []
-# epsn_y = []
-tracker.track(p_gaussian, num_turns=num_turns, turn_by_turn_monitor=True )
+particles = xp.build_particles(tracker=tracker, particle_ref=line.particle_ref,
+                               x_norm=x_norm, y_norm=y_norm, delta=0,
+                               scale_with_transverse_norm_emitt=(nemitt_x, nemitt_y))
 
+tracker.track(particles, num_turns=num_turns, turn_by_turn_monitor=True )
 
-for ii in range(num_turns):
-    bunch_moments=r.measure_bunch_moments(p_gaussian)
-    epsn_x.append(bunch_moments['nemitt_x'])
-    epsn_y.append(bunch_moments['nemitt_y'])
+np.save('x',tracker.record_last_track.x)
+np.save('px',tracker.record_last_track.px)
+np.save('y',tracker.record_last_track.y)
+np.save('py',tracker.record_last_track.py)
+np.save('z',tracker.record_last_track.zeta)
+np.save('d',tracker.record_last_track.delta)
 
-print('epsn_x = ',epsn_x)
-print('epsn_y = ',epsn_y)
